@@ -3,25 +3,25 @@ run("Set Measurements...", "area mean standard min centroid center bounding shap
 dir= getDirectory("Choose the folder containing the images");
 setOption("JFileChooser", false);
 
-imagenames=getFileList(dir); /// directorio de las células a analizar
-nbimages=lengthOf(imagenames); /// nombre de las imagenes
+imagenames=getFileList(dir); /// directory of cells
+nbimages=lengthOf(imagenames); /// names of the files
 
-	Dialog.create("Channel of lysosomes");
-		Dialog.addNumber("Which is the first channel?",0);
-		Dialog.addNumber("Which is the second channel?",0);
+	Dialog.create("Channels");
+		Dialog.addNumber("Which is the first channel to colocalize?",0);
+		Dialog.addNumber("Which is the second channel to colocalize?",0);
 		Dialog.show();
-		first = Dialog.getNumber(); ///canal de lisosomas
-		second = Dialog.getNumber(); ///canal de lisosomas
+		first = Dialog.getNumber(); ///channel 1
+		second = Dialog.getNumber(); ///channel 2
 	Dialog.create("Select the start and end of the analysis");
 	Dialog.addNumber("Which stack do you want to start?", 1);
 	Dialog.addNumber("How many stacks do you have in the .lif file?", 0);
 	Dialog.show();
 	start = Dialog.getNumber();
 	end =Dialog.getNumber();
-for(image=0; image<nbimages; image++) { /// Loop de iteración de las imagenes a anlizar
+for(image=0; image<nbimages; image++) { /// Loop 
 	
 	name=imagenames[image];
-	totnamelength=lengthOf(name); /// extención del nombre
+	totnamelength=lengthOf(name); /// extention
 	namelength=totnamelength-4;
 	name1=substring(name, 0, namelength);
 	extension=substring(name, namelength, totnamelength);
@@ -33,7 +33,7 @@ for(image=0; image<nbimages; image++) { /// Loop de iteración de las imagenes a
 		savename = getTitle();
 		newname ="stack_"+stack;
 		rename(newname);
-		File.makeDirectory(dir+File.separator+"Cortadas"+stack);
+		File.makeDirectory(dir+File.separator+"Cropped"+stack);
 		getDimensions(width,height,channels,slices,frames);
 			getPixelSize(unit,pw,ph);
 			makeRectangle(0, 0, 20/pw, 20/ph);
@@ -49,18 +49,18 @@ for(image=0; image<nbimages; image++) { /// Loop de iteración de las imagenes a
 			openimages=nImages;
 			for (ROIs=0; ROIs<openimages ; ROIs++) {
 			    cutname=getTitle();
-			    dircut = dir+File.separator+"Cortadas"+stack;
+			    dircut = dir+File.separator+"Cropped"+stack;
 			    saveAs("Tiff", dircut+File.separator+cutname);    
 			    run("Close");
 			}
 			selectWindow("ROI Manager");
 			run("Close");
 			File.makeDirectory(dir+File.separator+"results"+stack);
-			imagenamesdc=getFileList(dircut); /// directorio de las células a analizar
-			nbimagesdc=lengthOf(imagenamesdc); /// nombre de las imagenes
-			for(imagedc=0; imagedc<nbimagesdc; imagedc++) { /// Loop de iteración de las imagenes a anlizar
+			imagenamesdc=getFileList(dircut); /// directory of images
+			nbimagesdc=lengthOf(imagenamesdc); /// name of the images de las imagenes
+			for(imagedc=0; imagedc<nbimagesdc; imagedc++) { /// Loop 
 				namedc=imagenamesdc[imagedc];
-				totnamelengthdc=lengthOf(namedc); /// extención del nombre
+				totnamelengthdc=lengthOf(namedc); /// extention
 				namelengthdc=totnamelengthdc-4;
 				name1dc=substring(namedc, 0, namelengthdc);
 				extensiondc=substring(namedc, namelengthdc, totnamelengthdc);
@@ -81,9 +81,9 @@ for(image=0; image<nbimages; image++) { /// Loop de iteración de las imagenes a
 			}
 			imagedc= 0;
 			
-			for(imagedc=0; imagedc<nbimagesdc; imagedc++) { /// Loop de iteración de las imagenes a anlizar
+			for(imagedc=0; imagedc<nbimagesdc; imagedc++) { /// Loop 
 				namedc=imagenamesdc[imagedc];
-				totnamelengthdc=lengthOf(namedc); /// extención del nombre
+				totnamelengthdc=lengthOf(namedc); /// extention
 				namelengthdc=totnamelengthdc-4;
 				name1dc=substring(namedc, 0, namelengthdc);
 				extensiondc=substring(namedc, namelengthdc, totnamelengthdc);
