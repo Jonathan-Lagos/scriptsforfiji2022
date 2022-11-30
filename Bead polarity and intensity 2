@@ -1,0 +1,433 @@
+///Seteo
+run("Set Measurements...", "area mean standard min centroid center bounding integrated median display redirect=None decimal=9");
+run("Colors...", "foreground=white background=black selection=yellow");
+
+
+//Function
+//Mass center polarity function
+function MCPolarity(cxBead,cyBead,xBead,yBead,wBead,hBead,cxCell,cyCell,xCell,yCell,wCell,hCell,Channel){
+	run("Duplicate...", "title=MC.tif duplicate channels="+Channel);
+	run("Z Project...", "projection=[Standard Deviation]");
+	makeOval(xBead,yBead,wBead,hBead);
+	roiManager("Add");
+	makeOval(xCell,yCell,wCell,hCell);
+	roiManager("Add");
+	roiManager("Select", newArray(0,1));
+	roiManager("Combine");
+	roiManager("Add");
+	roiManager("Select", 2);
+	run("Clear Outside");
+	run("Measure");
+	x=getResult("XM", 0);
+	y=getResult("YM", 0);
+	
+	getPixelSize(unit,pw,ph);
+	xMC=x/pw;
+	yMC=y/ph;
+
+	/// Calculo de la distancia CM célula-bead, CM-célula MTOC
+	dBeadCell=sqrt(((cxBead-cxCell)*(cxBead-cxCell))+((cyBead-cyCell)*(cyBead-cyCell)));
+	dMCCell=sqrt(((xMC-cxCell)*(xMC-cxCell))+((yMC-cyCell)*(yMC-cyCell)));
+	
+	makeSelection("angle",newArray(xMC,cxCell,cxBead),newArray(yMC,cyCell,cyBead));
+	run("Clear Results");
+	run("Measure");
+	angleMCCellBead=getResult("Angle");
+	run("Clear Results");
+	angleRadial=angleMCCellBead*2*PI/360;
+	projmc=dMCCell*cos(angleRadial);
+	close("MC.tif");
+	close("STD_MC.tif");
+	selectWindow("Results");
+	run("Close");
+	selectWindow("ROI Manager");
+	run("Close");
+	return projmc/dBeadCell;
+}
+
+
+///Fluorescencia de la bead contrastada con la fluorescencia total
+function BeadFluo(Area,xBead,yBead,wBead,hBead,cxBead,cyBead,xCell,yCell,wCell,hCell,Channel){
+	
+	run("Duplicate...", "title=Bead1.tif duplicate channels="+Channel);
+	run("Z Project...", "projection=[Standard Deviation]");
+	makeOval(xCell,yCell,wCell,hCell);
+	roiManager("add");
+	makeOval(xBead,yBead,wBead,hBead);
+	roiManager("add");
+	roiManager("select",newArray(0,1));
+	roiManager("OR");
+	roiManager("add");
+	roiManager("select",2);
+	roiManager("rename","CellBead");
+	roiManager("select",2);
+	run("Clear Outside");
+	roiManager("select",2);
+	run("Measure");
+	TotFluo = getResult("RawIntDen",0); //Medir fluorescencia Total
+	run("Clear Results");
+	roiManager("deselect");
+	run("Select None");
+	roiManager("delete");	
+
+	getPixelSize(unit,pw,ph);
+	
+	D = Area/pw;
+	
+	makeOval(cxBead-(D/2),cyBead-(D/2),D,D);
+	run("Duplicate...", "title=Bead2.tif duplicate channels="+Channel);
+	makeOval(0, 0, D, D);
+	roiManager("Add");
+	roiManager("Select", 0);
+	run("Clear Outside");
+	roiManager("Select", 0);	
+	run("Measure");
+	Fluo = getResult ("RawIntDen",0);
+	run("Clear Results");
+	
+	selectWindow("ROI Manager");
+	run("Close");
+	close("STD_Bead1.tif");
+	close("Bead1.tif");
+	close("Bead2.tif");
+	selectWindow("Results");
+	run("Close");
+	
+	Result = Fluo/TotFluo;
+	
+	return Result*100;
+}
+///Fluorescencia de la Bead sin contrastar con la fluorescencia total, util para OVA y Cypher
+function BeadInt(Area,cxBead,cyBead,Channel){
+	
+	run("Duplicate...", "title=Bead1.tif duplicate channels="+Channel);
+	run("Z Project...", "projection=[Standard Deviation]");
+	
+	getPixelSize(unit,pw,ph);
+	
+	D = Area/pw;
+	
+	makeOval(cxBead-(D/2),cyBead-(D/2),D,D);
+	roiManager("add");
+	roiManager("select",0);
+	run("Duplicate...", "title=Bead2.tif duplicate channels="+Channel);
+	makeOval(0, 0, D, D);
+	roiManager("add");
+	roiManager("Select", 1);
+	run("Clear Outside");
+	roiManager("Select", 1);
+	run("Measure");
+	Fluo = getResult("RawIntDen",0); //Medir fluorescencia Bead
+	run("Clear Results");
+	
+	selectWindow("ROI Manager");
+	run("Close");
+	close("STD_Bead1.tif");
+	close("Bead1.tif");
+	close("Bead2.tif");
+	selectWindow("Results");
+	run("Close");
+	
+	return Fluo;
+}
+
+/// fluorescencia en la area sinaptica
+function SAF(xBead,yBead,wBead,hBead,cxBead,cyBead,xCell,yCell,wCell,hCell,cxCell,cyCell,Channel){
+	
+	run("Duplicate...", "title=SAF.tif duplicate channels="+Channel);
+	run("Z Project...", "projection=[Standard Deviation]");
+	selectWindow("STD_SAF.tif");
+	makeLine(cxCell,cyCell,cxBead,cyBead);
+	run("Measure");
+	angle=getResult("Angle");
+	run("Clear Results");
+	makeOval(xCell,yCell,wCell,hCell);
+	run("Crop");
+	run("Rotate... ", "angle="+angle+" grid=1 interpolation=Bilinear stack");
+	///Elimiar Background
+	makeOval(0,0,wCell,hCell);
+	roiManager("Add");
+	wait(1);
+	roiManager("Select", 0);
+	run("Clear Outside");
+	///Rotar con la bead a la derecha y normalizar tamaÃ±o
+	makeRectangle(wCell*3/4,0,wCell/4,hCell);/// rectangulo de un cuarto del tamaño de la célula 
+	roiManager("Add");
+	roiManager("select",newArray(0,1));
+	roiManager("And");
+	roiManager("Add");
+	run("Measure");
+	FS=getResult("RawIntDen");
+	run("Clear Results");
+	roiManager("Select", 0);
+	run("Measure");
+	FT=getResult("RawIntDen");
+	PtjFSFT=(FS/FT);
+	close("SAF.tif");
+	close("STD_SAF.tif");
+	selectWindow("ROI Manager");
+	run("Close");
+	run("Clear Results");
+	
+	
+	return PtjFSFT*100;
+}
+//Interacción con el usuario
+//seleccion de canales
+dir= getDirectory("Escoge la carpeta de las celulas");
+imagenames=getFileList(dir); /// directorio de las células a analizar
+nbimages=lengthOf(imagenames); /// nombre de las imagenes
+
+run("Bio-Formats Importer", "open=["+dir+File.separator+imagenames[0]+"] color_mode=Default view=Hyperstack stack_order=XYCZT");
+
+getDimensions(imagew,imageh,channels,slices,frames);
+run("Bio-Formats Importer", "open=["+dir+imagenames[0]+"] color_mode=Default view=Hyperstack stack_order=XYCZT");
+
+	if(imagew<2000){
+	run("In [+]");
+	run("In [+]");
+	
+	}
+
+	start = 0;
+
+{
+	Dialog.create("Indica el número de célula en que quedaste pendiente");
+	Dialog.addNumber("El número tiene que estar puesto en números enteros", 0);
+	Dialog.show();
+	start = Dialog.getNumber();
+}
+
+	waitForUser("Revise cada canal");
+	Dialog.create("Color de los canales");
+	Dialog.addMessage("Elija el color en que va a quedar cada canal\nSi no quiere nada en ese color deje *None*");
+	Dialog.addChoice("¿Cuántos canales tiene su imagen?", newArray("1","2","3","4","5"),0);
+	Dialog.addChoice("OVA or GEF:",newArray("*None*","1","2","3","4","5"),"*None*");
+	Dialog.addChoice("Actina:",newArray("*None*","1","2","3","4","5"),"*None*");
+	Dialog.addChoice("Lisosomas:",newArray("*None*","1","2","3","4","5"),"*None*");
+	Dialog.addChoice("CampoClaro:",newArray("*None*","1","2","3","4","5"),"*None*");
+	Dialog.show();
+	
+	NChannels = Dialog.getChoice();
+	OVA = Dialog.getChoice();
+	Actina = Dialog.getChoice();
+	Lisosomas = Dialog.getChoice();
+	CampoClaro = Dialog.getChoice();	
+	
+	
+	
+EachChannel = newArray(OVA,Actina,Lisosomas,CampoClaro);
+ChannelColor = newArray("OVA","Actina","Lisosomas","CampoClaro");
+
+
+
+
+///Inicio
+
+
+	Area = 3;
+
+
+	
+
+	/// Loop de iteración de las imagenes a analizar
+for(image=start; image<nbimages; image++) { 
+	
+	name=imagenames[image];
+	totnamelength=lengthOf(name); /// extensión del nombre
+	namelength=totnamelength-4;
+	name1=substring(name, 0, namelength);
+	extension=substring(name, namelength, totnamelength);
+	dirFoto = dir+name;
+	
+	if(extension==".tif" || extension==".nd2") {
+		run("Bio-Formats Importer", "open=["+dirFoto+"] color_mode=Default view=Hyperstack stack_order=XYCZT");
+		if(imagew<2000){
+			run("In [+]");
+			run("In [+]");
+			run("In [+]");
+		}
+		
+		Stack.setChannel(CampoClaro);
+		run("Duplicate...", "title=CampoClaro.tif duplicate channels=CampoClaro");
+		run("Z Project...", "projection=[Sum Slices]");
+		if(imagew<2000){
+			run("In [+]");
+			run("In [+]");
+			run("In [+]");
+		}
+	
+		{
+			/// obtención de la coordenada de la bead
+			getPixelSize(unit,pw,ph);
+			run("Convert to Mask");
+			run("Invert");
+			run("Analyze Particles...", "exclude add");
+			waitForUser("esta ok?");
+			roiManager("Measure");
+			getSelectionBounds(xBead,yBead,wBead,hBead);
+			precxBead =getResult("X", 0); /// centro de masa coordenada x
+			precyBead =getResult("Y", 0);/// centro de masa coordenada y
+			wait(10);
+			cxBead = precxBead/pw;
+			cyBead = precyBead/ph;
+			
+			run("Clear Results");
+			selectWindow("ROI Manager");
+			run("Close");
+		}
+		close("CampoClaro.tif");
+		close("SUM_CampoClaro.tif");
+//determinación a través de mascara en canal de actina
+		selectWindow(name);		
+		Stack.setChannel(Actina);
+		run("Duplicate...", "title=Actina.tif duplicate channels=Actina");
+		//run("Z Project...", "projection=[Sum Slices]");
+		makeOval(0, 0, 30, 30);
+		if(imagew<2000){
+			run("In [+]");
+			run("In [+]");
+			run("In [+]");
+		}
+		{
+			/// determinación del centro de masa de la celula
+			getPixelSize(unit,pw,ph);
+			makeOval(0, 0, 10/pw, 10/ph);
+			//run("Convert to Mask");
+			//run("Analyze Particles...", "exclude add");
+			waitForUser("esta ok?");
+			roiManager("Measure");
+			getSelectionBounds(xCell,yCell,wCell,hCell);
+			precxCell=getResult("X", 0); /// centro de masa coordenada x
+			precyCell=getResult("Y", 0);/// centro de masa coordenada y
+			wait(10);
+			getPixelSize(unit,pw,ph);
+			cxCell = precxCell/pw;
+			cyCell = precyCell/ph;
+
+			run("Clear Results");
+			selectWindow("ROI Manager");
+			run("Close");
+		}	
+			
+		close("Actina.tif");
+		close("SUM_Actina.tif");
+
+///array de resultados
+    	
+		MCPR = newArray(6);
+		BFR = newArray(6);
+		TFR = newArray(6);
+		HMR = newArray(6);
+		BIR = newArray(6);
+		SFR = newArray(6);
+		CMRR = newArray(6);
+		CFR = newArray(6);
+		CDFR = newArray(6);
+		SpR = newArray(6);
+		DCNR = newArray(6);
+		DMMR = newArray(6);
+		ANR = newArray(6);
+		ArNR = newArray(6);
+		AMtocR = newArray(6);
+		AN2R = newArray(6);
+		ArN2R = newArray(6);
+		DMtocCR = newArray(6);
+		DMtocNR = newArray(6);
+
+
+//análisis polaridad del centro de masa de la marca total del canal seleccionado
+//A		
+			
+			BFR = BeadFluo(Area,xBead,yBead,wBead,hBead,cxBead,cyBead,xCell,yCell,wCell,hCell,Lisosomas);	
+			MCPR = MCPolarity(cxBead,cyBead,xBead,yBead,wBead,hBead,cxCell,cyCell,xCell,yCell,wCell,hCell,Lisosomas);	
+			BIR  = BeadInt(Area,cxBead,cyBead,OVA);
+			BFRG = BeadFluo(Area,xBead,yBead,wBead,hBead,cxBead,cyBead,xCell,yCell,wCell,hCell,OVA);
+			SFG = SAF(xBead,yBead,wBead,hBead,cxBead,cyBead,xCell,yCell,wCell,hCell,cxCell,cyCell,OVA);
+			SFR = SAF(xBead,yBead,wBead,hBead,cxBead,cyBead,xCell,yCell,wCell,hCell,cxCell,cyCell,Lisosomas);
+			//análisis de la fluorescencia del determinado canal en la bead
+		
+		//	for(i=0;i<6;i++){
+		//		
+			//		BFR[i] = BeadFluo(Area,xBead,yBead,wBead,hBead,cxBead,cyBead,xCell,yCell,wCell,hCell,EachChannel[i]);
+		//		}
+			
+		
+// Bead intensity (Para OVA y cypher)
+		
+		//	for(i=0;i<6;i++){
+		//		
+		//			BIR[i] = BeadInt(Area,cxBead,cyBead,EachChannel[i]);
+		//		}
+			
+		
+// Sinaptic fluorescence (area sinaptica del tamaño de un cuarto de la célula)
+		
+		//	for(i=0;i<6;i++){
+				
+		//			SFR[i] = SAF(xBead,yBead,wBead,hBead,cxBead,cyBead,xCell,yCell,wCell,hCell,cxCell,cyCell,EachChannel[i]);
+				
+		//	}
+		
+////impresión de datos
+		TAG = newArray(6);
+		PRINT = newArray(6);
+		TAG[0]="Número";
+		PRINT[0]=image;
+		TAG[1]="Nombre";
+		PRINT[1]=name1;
+		Count=2;
+
+		TAG[Count]="BFLiso"+(Lisosomas);
+		PRINT[Count]=BFR;
+		Count++;		
+		TAG[Count]="MCPLiso"+(Lisosomas);
+		PRINT[Count]=MCPR;
+		Count++;
+		TAG[Count]="BIGEF"+(OVA);
+		PRINT[Count]=BIR;
+		Count++;
+		TAG[Count]="BFGEF"+(OVA);
+		PRINT[Count]=BFRG;
+		Count++;
+		TAG[Count]="SFGEF"+(OVA);
+		PRINT[Count]=SFG;
+		Count++;
+		TAG[Count]="SFLiso"+(Lisosomas);
+		PRINT[Count]=SFR;
+		Count++;
+		Array.print(TAG);
+		Array.print(PRINT);		
+		//el siguiente } cierra el if tif o nd2
+			}
+
+		while (nImages>0) {
+		selectImage(nImages); 
+		close(); 
+	} 
+}
+			//{
+			//	){
+			//		TAG[Count]="BF"+(i+1);
+				//	PRINT[Count]=BFR[i];
+				//	Count++;
+				//}
+			//}
+		
+			//{
+				//{
+					//TAG[Count]="BI"+(i+1);
+					//PRINT[Count]=BIR[i];
+					//Count++;
+				//}
+			//}
+			//{
+				//{
+					//TAG[Count]="SF"+(i+1);
+					//PRINT[Count]=SFR[i];
+					//Count++;
+				//}
+			//}
+			
+		Array.print(TAG);
+		Array.print(PRINT);
