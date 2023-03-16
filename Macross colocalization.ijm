@@ -59,4 +59,4 @@ nbimages=lengthOf(imagenames); /// nombre de las imagenes
 					close(abierta);
 					}		
 			}
-}
+
